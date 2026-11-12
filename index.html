@@ -6,6 +6,7 @@
   <title>학급비 사용 내역 대시보드</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -41,11 +42,17 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-2.5">
-        <span id="roleBadge" class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
+      <div class="flex flex-wrap items-center gap-2">
+        <span id="roleBadge" class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 sm:px-3">
           <span id="roleDot" class="h-2 w-2 rounded-full bg-slate-400"></span>
           <span id="roleText">뷰어 모드 (읽기 전용)</span>
         </span>
+        <button id="qrBtn" type="button" title="현재 페이지 QR 코드 크게 보기" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 sm:text-sm">
+          <svg class="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm11 3h2m2 0h3m-5 4h5m-5-7h2m2 0h1" />
+          </svg>
+          <span>QR</span>
+        </button>
         <button id="authBtn" type="button" class="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 sm:text-sm">
           관리자 로그인
         </button>
@@ -136,7 +143,7 @@
 
         <div class="flex flex-wrap items-center gap-2.5">
           <div class="relative">
-            <input id="searchInput" type="text" placeholder="내역 또는 비고(이름) 검색..." class="w-56 rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 sm:w-64 sm:text-sm" />
+            <input id="searchInput" type="text" placeholder="내역 또는 비고(이름) 검색..." class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 sm:w-64 sm:text-sm" />
             <svg class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -150,8 +157,12 @@
         </div>
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[640px] border-collapse text-left text-sm">
+      <!-- 모바일 전용 UI (가로 스크롤 없이 한 화면에 표시) -->
+      <div id="mobileLedgerList" class="divide-y divide-slate-100 md:hidden"></div>
+
+      <!-- 데스크톱/태블릿 전용 테이블 -->
+      <div class="hidden overflow-x-auto md:block">
+        <table class="w-full border-collapse text-left text-sm">
           <thead>
             <tr class="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-500">
               <th class="px-4 py-3.5 text-center w-14">순번</th>
@@ -172,6 +183,33 @@
       </div>
     </section>
   </main>
+
+  <!-- Large QR Share Modal -->
+  <div id="qrModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/75 p-4 backdrop-blur-sm">
+    <div class="flex w-full max-w-lg flex-col items-center rounded-3xl bg-white p-6 text-center shadow-2xl sm:p-8">
+      <div class="mb-2 flex w-full items-center justify-between">
+        <h3 class="text-lg font-bold text-slate-900 sm:text-xl">학급비 현황판 QR 코드</h3>
+        <button id="closeQrModal" type="button" class="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+          <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <p class="mb-5 text-xs text-slate-500 sm:text-sm">스마트폰 카메라로 스캔하면 학급비 사용 내역으로 바로 접속합니다.</p>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-inner">
+        <div id="qrCodeBox" class="flex items-center justify-center"></div>
+      </div>
+      <p id="qrUrlText" class="mt-4 w-full break-all rounded-xl bg-slate-100 px-3.5 py-2.5 text-xs font-medium text-slate-600"></p>
+      <div class="mt-5 flex w-full gap-2.5">
+        <button id="copyUrlBtn" type="button" class="flex-1 rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+          주소 복사하기
+        </button>
+        <button id="closeQrBtn" type="button" class="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          닫기
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Login Modal -->
   <div id="loginModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
@@ -440,13 +478,56 @@
       });
 
       const tbody = document.getElementById("ledgerBody");
+      const mobileList = document.getElementById("mobileLedgerList");
       const emptyState = document.getElementById("emptyState");
       tbody.innerHTML = "";
+      mobileList.innerHTML = "";
 
       if (filtered.length === 0) {
         emptyState.classList.remove("hidden");
       } else {
         emptyState.classList.add("hidden");
+        filtered.forEach(item => {
+          const card = document.createElement("div");
+          card.className = "p-4 transition hover:bg-slate-50/70";
+          const isIncome = item.income > 0;
+          const isExpense = item.expense > 0;
+          const amountBadge = isIncome
+            ? `<span class="tabular-nums text-sm font-bold text-emerald-600">+${formatWon(item.income)}</span>`
+            : isExpense
+              ? `<span class="tabular-nums text-sm font-bold text-rose-600">-${formatWon(item.expense)}</span>`
+              : `<span class="tabular-nums text-sm font-semibold text-slate-400">₩0</span>`;
+
+          const mobileNote = item.note
+            ? `<p class="mt-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs leading-relaxed text-slate-600">${escapeHtml(item.note)}</p>`
+            : "";
+
+          const mobileActions = isLoggedIn
+            ? `<div class="mt-2.5 flex justify-end gap-2 border-t border-slate-100 pt-2.5">
+                 <button type="button" data-edit-id="${item.id}" class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700">수정</button>
+                 <button type="button" data-delete-id="${item.id}" class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50">삭제</button>
+               </div>`
+            : "";
+
+          card.innerHTML = `
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5">
+                  <span class="inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-slate-100 px-1 text-[11px] font-bold text-slate-500">${item.seq}</span>
+                  <span class="truncate text-sm font-bold text-slate-900">${escapeHtml(item.title)}</span>
+                </div>
+                <p class="mt-0.5 text-xs text-slate-400">${escapeHtml(item.date || "날짜 미지정")}</p>
+              </div>
+              <div class="shrink-0 text-right">
+                <div>${amountBadge}</div>
+                <p class="tabular-nums mt-0.5 text-[11px] font-medium text-slate-500">잔액 ${item.seq === 1 && item.balance === 0 ? "₩0" : formatWon(item.balance)}</p>
+              </div>
+            </div>
+            ${mobileNote}
+            ${mobileActions}
+          `;
+          mobileList.appendChild(card);
+        });
         filtered.forEach(item => {
           const tr = document.createElement("tr");
           tr.className = "transition hover:bg-slate-50/80";
@@ -718,7 +799,7 @@
     });
 
     const deleteModal = document.getElementById("deleteModal");
-    document.getElementById("ledgerBody").addEventListener("click", (e) => {
+    function handleLedgerClick(e) {
       const editBtn = e.target.closest("[data-edit-id]");
       if (editBtn) {
         const id = Number(editBtn.dataset.editId);
@@ -734,6 +815,64 @@
           target ? `'${target.title}' 내역을 정말 삭제하시겠습니까?` : "이 내역을 정말 삭제하시겠습니까?";
         deleteModal.classList.remove("hidden");
         deleteModal.classList.add("flex");
+      }
+    }
+    document.getElementById("ledgerBody").addEventListener("click", handleLedgerClick);
+    document.getElementById("mobileLedgerList").addEventListener("click", handleLedgerClick);
+
+    // QR Modal Logic
+    const qrModal = document.getElementById("qrModal");
+    function openQrModal() {
+      const currentUrl = window.location.href.startsWith("http")
+        ? window.location.href
+        : "https://example.com";
+      const box = document.getElementById("qrCodeBox");
+      box.innerHTML = "";
+      if (typeof QRCode !== "undefined") {
+        new QRCode(box, {
+          text: currentUrl,
+          width: 260,
+          height: 260,
+          colorDark: "#0f172a",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      }
+      document.getElementById("qrUrlText").textContent = window.location.href.startsWith("http")
+        ? window.location.href
+        : "배포된 사이트(http/https)에서 접속하면 실제 주소의 QR 코드가 생성됩니다.";
+      qrModal.classList.remove("hidden");
+      qrModal.classList.add("flex");
+    }
+
+    function closeQrModal() {
+      qrModal.classList.add("hidden");
+      qrModal.classList.remove("flex");
+    }
+
+    document.getElementById("qrBtn").addEventListener("click", openQrModal);
+    document.getElementById("closeQrModal").addEventListener("click", closeQrModal);
+    document.getElementById("closeQrBtn").addEventListener("click", closeQrModal);
+    qrModal.addEventListener("click", (e) => {
+      if (e.target === qrModal) closeQrModal();
+    });
+
+    document.getElementById("copyUrlBtn").addEventListener("click", async () => {
+      const url = window.location.href;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = url;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        showToast("주소가 복사되었습니다.");
+      } catch (err) {
+        showToast("주소 복사에 실패했습니다.");
       }
     });
 
