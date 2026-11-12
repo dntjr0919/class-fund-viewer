@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>학급비 사용 내역 대시보드</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased">
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white shadow-lg transition-all">
+    <span id="toastMessage"></span>
+  </div>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
+      <div class="flex items-center gap-3">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">학급비 사용 내역</h1>
+          <p class="text-xs text-slate-500">투명한 학급비 수입·지출 현황판</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <span id="roleBadge" class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
+          <span id="roleDot" class="h-2 w-2 rounded-full bg-slate-400"></span>
+          <span id="roleText">뷰어 모드 (읽기 전용)</span>
+        </span>
+        <button id="authBtn" type="button" class="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 sm:text-sm">
+          관리자 로그인
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6">
+    <!-- Viewer Notice Banner -->
+    <div id="viewerBanner" class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-sm text-indigo-900">
+      <div class="flex items-center gap-2.5">
+        <svg class="h-5 w-5 shrink-0 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>현재 <strong>뷰어 모드</strong>로 열람 중입니다. 내역 추가·수정·삭제는 로그인한 관리자만 가능합니다.</span>
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <section class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">현재 잔액</span>
+          <span class="rounded-lg bg-indigo-50 p-2 text-indigo-600">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          </span>
+        </div>
+        <p id="kpiBalance" class="tabular-nums mt-3 text-2xl font-bold text-slate-900 sm:text-3xl">₩0</p>
+        <p id="kpiCount" class="mt-1 text-xs text-slate-500">총 0건의 내역 반영됨</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">총 수입</span>
+          <span class="rounded-lg bg-emerald-50 p-2 text-emerald-600">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 11l5-5m0 0l5 5m-5-5v12" />
+            </svg>
+          </span>
+        </div>
+        <p id="kpiIncome" class="tabular-nums mt-3 text-2xl font-bold text-emerald-600 sm:text-3xl">₩0</p>
+        <p class="mt-1 text-xs text-slate-500">학급비 지원 및 입금 합계</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">총 지출</span>
+          <span class="rounded-lg bg-rose-50 p-2 text-rose-600">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 13l-5 5m0 0l-5-5m5 5V6" />
+            </svg>
+          </span>
+        </div>
+        <p id="kpiExpense" class="tabular-nums mt-3 text-2xl font-bold text-rose-600 sm:text-3xl">₩0</p>
+        <p class="mt-1 text-xs text-slate-500">물품 구입 및 활동 지출 합계</p>
+      </div>
+    </section>
+
+    <!-- Chart Section -->
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">잔액 변화 및 입출금 추이</h2>
+          <p class="text-xs text-slate-500">항목별 누적 잔액(선)과 수입·지출(막대)을 한눈에 확인할 수 있습니다.</p>
+        </div>
+        <div class="flex items-center gap-2 text-xs text-slate-500">
+          <span id="syncStatus">15초마다 자동 동기화</span>
+          <button id="refreshBtn" type="button" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100">
+            새로고침
+          </button>
+        </div>
+      </div>
+      <div class="relative h-72 w-full">
+        <canvas id="budgetChart"></canvas>
+      </div>
+    </section>
+
+    <!-- Ledger Table Section -->
+    <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5">
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" data-filter="all" class="filter-btn rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition">전체</button>
+          <button type="button" data-filter="income" class="filter-btn rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200">수입</button>
+          <button type="button" data-filter="expense" class="filter-btn rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200">지출</button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5">
+          <div class="relative">
+            <input id="searchInput" type="text" placeholder="내역 또는 비고(이름) 검색..." class="w-56 rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 sm:w-64 sm:text-sm" />
+            <svg class="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <button id="addBtn" type="button" class="hidden items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 sm:text-sm">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            내역 추가
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[640px] border-collapse text-left text-sm">
+          <thead>
+            <tr class="border-b border-slate-200 bg-slate-50/80 text-xs font-semibold text-slate-500">
+              <th class="px-4 py-3.5 text-center w-14">순번</th>
+              <th class="px-4 py-3.5 w-28">날짜</th>
+              <th class="px-4 py-3.5">내역</th>
+              <th class="px-4 py-3.5 text-right">수입</th>
+              <th class="px-4 py-3.5 text-right">지출</th>
+              <th class="px-4 py-3.5 text-right">누적 합계</th>
+              <th class="px-4 py-3.5">비고</th>
+              <th id="actionHeader" class="hidden px-4 py-3.5 text-center w-28">관리</th>
+            </tr>
+          </thead>
+          <tbody id="ledgerBody" class="divide-y divide-slate-100 text-slate-700"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="hidden py-12 text-center text-sm text-slate-500">
+        조건에 맞는 내역이 없습니다.
+      </div>
+    </section>
+  </main>
+
+  <!-- Login Modal -->
+  <div id="loginModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      <div class="mb-4 flex items-center justify-between">
+        <h3 class="text-lg font-bold text-slate-900">관리자 로그인</h3>
+        <button id="closeLoginModal" type="button" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <p class="mb-4 text-xs text-slate-500">
+        관리자 계정으로 로그인하면 학급비 내역을 추가·수정·삭제할 수 있습니다.
+      </p>
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label for="loginUsername" class="mb-1 block text-xs font-semibold text-slate-700">아이디</label>
+          <input id="loginUsername" type="text" required autocomplete="username" placeholder="관리자 아이디" class="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100" />
+        </div>
+        <div>
+          <label for="loginPassword" class="mb-1 block text-xs font-semibold text-slate-700">비밀번호</label>
+          <input id="loginPassword" type="password" required autocomplete="current-password" placeholder="비밀번호" class="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100" />
+        </div>
+        <p id="loginError" class="hidden text-xs font-medium text-rose-600"></p>
+        <button id="loginSubmitBtn" type="submit" class="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50">
+          로그인하기
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add / Edit Transaction Modal -->
+  <div id="txModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
+    <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+      <div class="mb-4 flex items-center justify-between">
+        <h3 id="txModalTitle" class="text-lg font-bold text-slate-900">내역 추가</h3>
+        <button id="closeTxModal" type="button" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <form id="txForm" class="space-y-4">
+        <input id="txId" type="hidden" />
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="txDate" class="mb-1 block text-xs font-semibold text-slate-700">날짜</label>
+            <input id="txDate" type="text" placeholder="예: 11.15" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100" />
+          </div>
+          <div>
+            <label for="txType" class="mb-1 block text-xs font-semibold text-slate-700">구분</label>
+            <select id="txType" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100">
+              <option value="income">수입 (+)</option>
+              <option value="expense">지출 (-)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label for="txTitle" class="mb-1 block text-xs font-semibold text-slate-700">내역명 *</label>
+          <input id="txTitle" type="text" required placeholder="예: 체육대회 간식 구입" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100" />
+        </div>
+        <div>
+          <label for="txAmount" class="mb-1 block text-xs font-semibold text-slate-700">금액 (원) *</label>
+          <input id="txAmount" type="number" min="0" required placeholder="0" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100" />
+        </div>
+        <div>
+          <label for="txNote" class="mb-1 block text-xs font-semibold text-slate-700">비고</label>
+          <textarea id="txNote" rows="2" placeholder="입금자 명단 또는 상세 메모" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button id="cancelTxBtn" type="button" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">취소</button>
+          <button type="submit" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div id="deleteModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
+    <div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+      <h3 class="text-base font-bold text-slate-900">내역 삭제 확인</h3>
+      <p id="deleteModalDesc" class="mt-2 text-sm text-slate-600">정말 이 내역을 삭제하시겠습니까?</p>
+      <div class="mt-5 flex justify-end gap-2">
+        <button id="cancelDeleteBtn" type="button" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">취소</button>
+        <button id="confirmDeleteBtn" type="button" class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-700">삭제</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // 1. Google Apps Script 웹 앱 URL 설정
+    //    발급받은 https://script.google.com/macros/s/.../exec 주소를 넣으세요.
+    // ==========================================
+    const APPS_SCRIPT_URL = "";
+
+    // URL 미입력 시 미리보기용 초기 데이터 (연결 후에는 시트 데이터를 실시간으로 불러옵니다)
+    const INITIAL_DATA = [
+      { id: 2, title: "3월 학급비", date: "3.5", expense: 0, income: 300000, note: "" },
+      { id: 3, title: "추가 지급분", date: "3.19", expense: 0, income: 225000, note: "" },
+      { id: 4, title: "반티 구입", date: "4.21", expense: 425000, income: 0, note: "" },
+      { id: 5, title: "프린팅비 입금", date: "4.22~5.13", expense: 0, income: 52500, note: "김용준, 송유림, 황시우, 김민서, 이다은, 임도연, 김유민, 우정은, 안시윤, 심예원, 송지우" },
+      { id: 6, title: "민주시민 간식", date: "11.1", expense: 0, income: 200000, note: "" }
+    ];
+    INITIAL_DATA.unshift({ id: 1, title: "초기", date: "", expense: 0, income: 0, note: "" });
+
+    let transactions = INITIAL_DATA.map(item => ({ ...item }));
+    let isLoggedIn = false;
+    let authCredentials = { username: "", password: "" };
+    let currentFilter = "all";
+    let searchQuery = "";
+    let pendingDeleteId = null;
+    let chartInstance = null;
+
+    const AUTO_REFRESH_MS = 15000; // 15초마다 자동 갱신
+    let autoRefreshTimer = null;
+
+    function updateSyncLabel() {
+      const el = document.getElementById("syncStatus");
+      if (!el) return;
+      if (!APPS_SCRIPT_URL) {
+        el.textContent = "미리보기 모드";
+        return;
+      }
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      el.textContent = `자동 동기화 (${timeStr})`;
+    }
+
+    async function fetchTransactions(silent = false) {
+      if (!APPS_SCRIPT_URL) {
+        updateSyncLabel();
+        renderAll();
+        return;
+      }
+      try {
+        const sep = APPS_SCRIPT_URL.includes("?") ? "&" : "?";
+        const res = await fetch(`${APPS_SCRIPT_URL}${sep}t=${Date.now()}`, { cache: "no-store" });
+        const json = await res.json();
+        if (json.ok && Array.isArray(json.data)) {
+          const changed = JSON.stringify(json.data) !== JSON.stringify(transactions);
+          transactions = json.data;
+          updateSyncLabel();
+          if (changed || !silent) {
+            renderAll();
+            if (silent && changed) showToast("시트 변경 사항이 자동 반영되었습니다.");
+          }
+        } else if (!silent) {
+          showToast(json.error || "시트 데이터를 불러오지 못했습니다.");
+        }
+      } catch (err) {
+        if (!silent) showToast("시트 연결 중 오류가 발생했습니다.");
+      }
+    }
+
+    function startAutoRefresh() {
+      clearInterval(autoRefreshTimer);
+      autoRefreshTimer = setInterval(() => {
+        if (!document.hidden && APPS_SCRIPT_URL) {
+          fetchTransactions(true);
+        }
+      }, AUTO_REFRESH_MS);
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden && APPS_SCRIPT_URL) {
+        fetchTransactions(true);
+      }
+    });
+
+    async function postToSheet(payload) {
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    }
+
+    function formatWon(amount) {
+      return "₩" + Number(amount || 0).toLocaleString("ko-KR");
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      const msg = document.getElementById("toastMessage");
+      msg.textContent = message;
+      toast.classList.remove("hidden");
+      toast.classList.add("flex");
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => {
+        toast.classList.add("hidden");
+        toast.classList.remove("flex");
+      }, 2600);
+    }
+
+    function computeLedger() {
+      let running = 0;
+      let totalIncome = 0;
+      let totalExpense = 0;
+      const computed = transactions.map((item, idx) => {
+        const inc = Number(item.income) || 0;
+        const exp = Number(item.expense) || 0;
+        totalIncome += inc;
+        totalExpense += exp;
+        running += (inc - exp);
+        return {
+          ...item,
+          seq: idx + 1,
+          income: inc,
+          expense: exp,
+          balance: running
+        };
+      });
+      return { computed, totalIncome, totalExpense, currentBalance: running };
+    }
+
+    function renderAll() {
+      const { computed, totalIncome, totalExpense, currentBalance } = computeLedger();
+
+      document.getElementById("kpiBalance").textContent = formatWon(currentBalance);
+      document.getElementById("kpiIncome").textContent = formatWon(totalIncome);
+      document.getElementById("kpiExpense").textContent = formatWon(totalExpense);
+      document.getElementById("kpiCount").textContent = `총 ${computed.length}건의 내역 반영됨`;
+
+      const roleBadge = document.getElementById("roleBadge");
+      const roleDot = document.getElementById("roleDot");
+      const roleText = document.getElementById("roleText");
+      const authBtn = document.getElementById("authBtn");
+      const viewerBanner = document.getElementById("viewerBanner");
+      const addBtn = document.getElementById("addBtn");
+      const actionHeader = document.getElementById("actionHeader");
+
+      if (isLoggedIn) {
+        roleBadge.className = "inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700";
+        roleDot.className = "h-2 w-2 rounded-full bg-emerald-500";
+        roleText.textContent = "관리자 모드 (수정 가능)";
+        authBtn.textContent = "로그아웃";
+        authBtn.className = "inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 sm:text-sm";
+        viewerBanner.classList.add("hidden");
+        addBtn.classList.remove("hidden");
+        addBtn.classList.add("inline-flex");
+        actionHeader.classList.remove("hidden");
+      } else {
+        roleBadge.className = "inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700";
+        roleDot.className = "h-2 w-2 rounded-full bg-slate-400";
+        roleText.textContent = "뷰어 모드 (읽기 전용)";
+        authBtn.textContent = "관리자 로그인";
+        authBtn.className = "inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 sm:text-sm";
+        viewerBanner.classList.remove("hidden");
+        addBtn.classList.add("hidden");
+        addBtn.classList.remove("inline-flex");
+        actionHeader.classList.add("hidden");
+      }
+
+      const q = searchQuery.trim().toLowerCase();
+      const filtered = computed.filter(item => {
+        if (currentFilter === "income" && item.income <= 0) return false;
+        if (currentFilter === "expense" && item.expense <= 0) return false;
+        if (q) {
+          const hay = `${item.title} ${item.date} ${item.note}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      const tbody = document.getElementById("ledgerBody");
+      const emptyState = document.getElementById("emptyState");
+      tbody.innerHTML = "";
+
+      if (filtered.length === 0) {
+        emptyState.classList.remove("hidden");
+      } else {
+        emptyState.classList.add("hidden");
+        filtered.forEach(item => {
+          const tr = document.createElement("tr");
+          tr.className = "transition hover:bg-slate-50/80";
+
+          const incomeCell = item.income > 0
+            ? `<span class="font-semibold text-emerald-600">+${formatWon(item.income)}</span>`
+            : `<span class="text-slate-300">-</span>`;
+
+          const expenseCell = item.expense > 0
+            ? `<span class="font-semibold text-rose-600">-${formatWon(item.expense)}</span>`
+            : `<span class="text-slate-300">-</span>`;
+
+          const noteHtml = item.note
+            ? `<div class="max-w-xs text-xs leading-relaxed text-slate-600">${escapeHtml(item.note)}</div>`
+            : `<span class="text-xs text-slate-300">-</span>`;
+
+          const actionHtml = isLoggedIn
+            ? `<td class="px-4 py-3.5 text-center">
+                 <div class="inline-flex items-center gap-1.5">
+                   <button type="button" data-edit-id="${item.id}" class="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700">수정</button>
+                   <button type="button" data-delete-id="${item.id}" class="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50">삭제</button>
+                 </div>
+               </td>`
+            : "";
+
+          tr.innerHTML = `
+            <td class="tabular-nums px-4 py-3.5 text-center text-xs font-medium text-slate-400">${item.seq}</td>
+            <td class="px-4 py-3.5 text-xs font-medium text-slate-600">${escapeHtml(item.date || "-")}</td>
+            <td class="px-4 py-3.5 font-semibold text-slate-900">${escapeHtml(item.title)}</td>
+            <td class="tabular-nums px-4 py-3.5 text-right">${incomeCell}</td>
+            <td class="tabular-nums px-4 py-3.5 text-right">${expenseCell}</td>
+            <td class="tabular-nums px-4 py-3.5 text-right font-bold text-slate-900">${item.seq === 1 && item.balance === 0 ? "₩0" : formatWon(item.balance)}</td>
+            <td class="px-4 py-3.5">${noteHtml}</td>
+            ${actionHtml}
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      renderChart(computed);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function renderChart(computed) {
+      const ctx = document.getElementById("budgetChart").getContext("2d");
+      const labels = computed.map(item => item.date ? `${item.title} (${item.date})` : item.title);
+      const balances = computed.map(item => item.balance);
+      const incomes = computed.map(item => item.income);
+      const expenses = computed.map(item => item.expense);
+
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      chartInstance = new Chart(ctx, {
+        data: {
+          labels,
+          datasets: [
+            {
+              type: "line",
+              label: "누적 잔액",
+              data: balances,
+              borderColor: "#4f46e5",
+              backgroundColor: "rgba(79, 70, 229, 0.12)",
+              borderWidth: 2.5,
+              tension: 0.25,
+              fill: true,
+              pointRadius: 4,
+              pointBackgroundColor: "#4f46e5",
+              yAxisID: "y"
+            },
+            {
+              type: "bar",
+              label: "수입",
+              data: incomes,
+              backgroundColor: "rgba(16, 185, 129, 0.75)",
+              borderRadius: 6,
+              yAxisID: "y"
+            },
+            {
+              type: "bar",
+              label: "지출",
+              data: expenses,
+              backgroundColor: "rgba(244, 63, 94, 0.75)",
+              borderRadius: 6,
+              yAxisID: "y"
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { position: "top", labels: { boxWidth: 12, font: { size: 12 } } },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${formatWon(ctx.parsed.y)}`
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (val) => "₩" + Number(val).toLocaleString("ko-KR")
+              },
+              grid: { color: "#f1f5f9" }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { font: { size: 11 } }
+            }
+          }
+        }
+      });
+    }
+
+    document.querySelectorAll(".filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        currentFilter = btn.dataset.filter;
+        document.querySelectorAll(".filter-btn").forEach(b => {
+          b.className = b === btn
+            ? "filter-btn rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition"
+            : "filter-btn rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200";
+        });
+        renderAll();
+      });
+    });
+
+    document.getElementById("searchInput").addEventListener("input", (e) => {
+      searchQuery = e.target.value;
+      renderAll();
+    });
+
+    // Auth Modal
+    const loginModal = document.getElementById("loginModal");
+    document.getElementById("authBtn").addEventListener("click", () => {
+      if (isLoggedIn) {
+        isLoggedIn = false;
+        authCredentials = { username: "", password: "" };
+        showToast("로그아웃되어 뷰어 모드로 전환되었습니다.");
+        renderAll();
+      } else {
+        document.getElementById("loginError").classList.add("hidden");
+        document.getElementById("loginForm").reset();
+        loginModal.classList.remove("hidden");
+        loginModal.classList.add("flex");
+      }
+    });
+
+    document.getElementById("closeLoginModal").addEventListener("click", () => {
+      loginModal.classList.add("hidden");
+      loginModal.classList.remove("flex");
+    });
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const username = document.getElementById("loginUsername").value.trim();
+      const password = document.getElementById("loginPassword").value.trim();
+      const errEl = document.getElementById("loginError");
+      const submitBtn = document.getElementById("loginSubmitBtn");
+
+      if (!APPS_SCRIPT_URL) {
+        errEl.textContent = "index.html 상단의 APPS_SCRIPT_URL에 웹 앱 주소를 먼저 입력해 주세요.";
+        errEl.classList.remove("hidden");
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "확인 중...";
+      errEl.classList.add("hidden");
+
+      try {
+        const res = await postToSheet({ action: "verify", username, password });
+        if (res.ok) {
+          isLoggedIn = true;
+          authCredentials = { username, password };
+          loginModal.classList.add("hidden");
+          loginModal.classList.remove("flex");
+          showToast("관리자 모드로 로그인되었습니다.");
+          renderAll();
+        } else {
+          errEl.textContent = res.error || "아이디 또는 비밀번호가 올바르지 않습니다.";
+          errEl.classList.remove("hidden");
+        }
+      } catch (err) {
+        errEl.textContent = "서버와 통신하지 못했습니다. 웹 앱 URL을 확인해 주세요.";
+        errEl.classList.remove("hidden");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "로그인하기";
+      }
+    });
+
+    // Add / Edit Modal
+    const txModal = document.getElementById("txModal");
+    function openTxModal(item = null) {
+      document.getElementById("txId").value = item ? item.id : "";
+      document.getElementById("txModalTitle").textContent = item ? "내역 수정" : "새 내역 추가";
+      document.getElementById("txDate").value = item ? item.date : "";
+      document.getElementById("txTitle").value = item ? item.title : "";
+      if (item && item.expense > 0) {
+        document.getElementById("txType").value = "expense";
+        document.getElementById("txAmount").value = item.expense;
+      } else {
+        document.getElementById("txType").value = "income";
+        document.getElementById("txAmount").value = item ? item.income : "";
+      }
+      document.getElementById("txNote").value = item ? item.note : "";
+      txModal.classList.remove("hidden");
+      txModal.classList.add("flex");
+    }
+
+    function closeTxModal() {
+      txModal.classList.add("hidden");
+      txModal.classList.remove("flex");
+    }
+
+    document.getElementById("addBtn").addEventListener("click", () => openTxModal(null));
+    document.getElementById("closeTxModal").addEventListener("click", closeTxModal);
+    document.getElementById("cancelTxBtn").addEventListener("click", closeTxModal);
+
+    document.getElementById("txForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const idStr = document.getElementById("txId").value;
+      const date = document.getElementById("txDate").value.trim();
+      const title = document.getElementById("txTitle").value.trim();
+      const type = document.getElementById("txType").value;
+      const amount = Math.max(0, Number(document.getElementById("txAmount").value) || 0);
+      const note = document.getElementById("txNote").value.trim();
+
+      const item = {
+        id: idStr ? Number(idStr) : undefined,
+        title,
+        date,
+        income: type === "income" ? amount : 0,
+        expense: type === "expense" ? amount : 0,
+        note
+      };
+
+      const action = idStr ? "update" : "add";
+      try {
+        showToast("시트에 저장 중...");
+        const res = await postToSheet({
+          action,
+          username: authCredentials.username,
+          password: authCredentials.password,
+          item
+        });
+        if (res.ok) {
+          closeTxModal();
+          await fetchTransactions();
+          showToast(idStr ? "내역이 수정되었습니다." : "새 내역이 추가되었습니다.");
+        } else {
+          showToast(res.error || "저장에 실패했습니다.");
+        }
+      } catch (err) {
+        showToast("시트 저장 중 오류가 발생했습니다.");
+      }
+    });
+
+    const deleteModal = document.getElementById("deleteModal");
+    document.getElementById("ledgerBody").addEventListener("click", (e) => {
+      const editBtn = e.target.closest("[data-edit-id]");
+      if (editBtn) {
+        const id = Number(editBtn.dataset.editId);
+        const target = transactions.find(t => t.id === id);
+        if (target) openTxModal(target);
+        return;
+      }
+      const delBtn = e.target.closest("[data-delete-id]");
+      if (delBtn) {
+        pendingDeleteId = Number(delBtn.dataset.deleteId);
+        const target = transactions.find(t => t.id === pendingDeleteId);
+        document.getElementById("deleteModalDesc").textContent =
+          target ? `'${target.title}' 내역을 정말 삭제하시겠습니까?` : "이 내역을 정말 삭제하시겠습니까?";
+        deleteModal.classList.remove("hidden");
+        deleteModal.classList.add("flex");
+      }
+    });
+
+    document.getElementById("cancelDeleteBtn").addEventListener("click", () => {
+      pendingDeleteId = null;
+      deleteModal.classList.add("hidden");
+      deleteModal.classList.remove("flex");
+    });
+
+    document.getElementById("confirmDeleteBtn").addEventListener("click", async () => {
+      if (pendingDeleteId !== null) {
+        try {
+          showToast("삭제 중...");
+          const res = await postToSheet({
+            action: "delete",
+            username: authCredentials.username,
+            password: authCredentials.password,
+            item: { id: pendingDeleteId }
+          });
+          pendingDeleteId = null;
+          deleteModal.classList.add("hidden");
+          deleteModal.classList.remove("flex");
+          if (res.ok) {
+            await fetchTransactions();
+            showToast("내역이 삭제되었습니다.");
+          } else {
+            showToast(res.error || "삭제에 실패했습니다.");
+          }
+        } catch (err) {
+          showToast("삭제 중 오류가 발생했습니다.");
+        }
+      }
+    });
+
+    document.getElementById("refreshBtn").addEventListener("click", () => {
+      fetchTransactions(false);
+    });
+
+    // Initial load & auto-refresh
+    fetchTransactions(false);
+    startAutoRefresh();
+  </script>
+</body>
+</html>
